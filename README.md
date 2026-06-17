@@ -1,12 +1,35 @@
-# heom_electronic_forces
-Calculate Markovian and non-Markovian nonadiabatic electronic forces acting on molecules interacting with metal surfaces via the Hieararchical Equations of Motion (HEOM) approach.
+# HEOM-Based Electronic Friction Framework
 
-This Python file contains the main code used to perform HEOM time-propagation, which is then used to calculate electronic forces. Because implementing HEOM is a complex task, various parts of the implementation are split into Python modules and Fortran subroutines. This code imports all modules and runs them in the correct order. 
+This repository implements a Hierarchical Equations of Motion (HEOM) framework for computing electronic forces acting on classical nuclear (vibrational) degrees of freedom in vibronic systems.
 
-USAGE - RUN FROM COMMAND LINE (TERMINAL) WITH ANACONDA:
-      First, one must create the Python wrappers from the Fortran subroutines by running ./compile_f2py.sh. This requires an anaconda installation. Then, one runs:
-      
-      python3 friction_heom_main.py ss
-      (for steady state forces)
-      python3 friction_heom_main.py markovian
-      (for time-dependent Markovian/Nonmarkovian forces)
+The nuclei are treated classically, while the electronic subsystem is treated as a fully quantum mechanical open system. This allows the calculation of non-equilibrium electronic effects on nuclear motion in molecules coupled to metallic leads.
+
+---
+
+# 🧠 Physical Overview
+
+The code computes the following quantities as functions of nuclear (vibrational) coordinates:
+
+- **Adiabatic electronic mean force**
+- **Electronic friction tensor**
+  - Markovian contribution
+  - Non-Markovian contribution
+- **Force–force correlation functions** of the stochastic electronic force
+- **Electronic current (adiabatic and non-adiabatic components)**
+
+These outputs can be used as input for classical **Langevin dynamics simulations** of nuclear motion.
+
+---
+
+# ⚙️ Model flexibility
+
+The framework supports general vibronic models with:
+
+- Arbitrary number of electronic sites
+- Arbitrary number of vibrational degrees of freedom
+- User-defined site energies and couplings
+- Electron–vibration coupling strengths and functional forms
+- Molecule–lead coupling strengths
+- Lead parameters and spectral properties
+
+All model parameters are defined in:
