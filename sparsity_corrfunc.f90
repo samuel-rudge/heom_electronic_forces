@@ -1,48 +1,152 @@
-
-
-! ---------------------------------------------------------------------------
-! 
-!       CALCULATE NUMBER OF CONNECTIONS BETWEEN ADO ELEMENTS IN HEOM
+! -----------------------------------------------------------------------------
 !
-! ---------------------------------------------------------------------------
+!        SPATIALLY-RESOLVED HEOM CORRELATION FUNCTION EVALUATION
 !
-! This Fortran subroutine calculates the number of connections between nonzero ADO elements. If we were in Liouville
-! space, this would be all nonzero elements of e^{L*dt}. 
+! -----------------------------------------------------------------------------
 !
-! USAGE - RUN IN MAIN PYTHON SCRIPT:
-!       rho_nonzeros,npairs,nhampairs = sparsity.sparse_matrix_elements_a(ksiglm=KsigLm,tier_index=tier_index,
-!                                un_ind=Un_Ind,index_minus=Index_Minus,index_plus=Index_Plus,d_ops=d_ops,ham=Ham,gamma_vec=gamma_vec,eta_vec=eta_vec,
-!                                rho_sparsity=rho_sparsity,nnz_elements=nnz_elements,dim_rho=dim_rho,len_index_plus=len_index_plus,len_un_ind=len_un_ind,
-!                                len_index_minus=len_un_ind,nmax=Nmax,nmodes=Nmodes,nel=Nel,nsign=Nsign,max_pairs=max_pairs,
-!                                max_ham_pairs=max_ham_pairs,nleads=Nleads,npoles=Npoles)
+! This module provides the Fortran backend for the computation of
+! electronic force–force correlation functions within the HEOM framework,
+! evaluated on a grid of nuclear (vibrational) coordinates.
 !
-! INPUTS:
-!       ksiglm,tier_index,index_minus,              Same input parameters as in nnz(...) above
-!       index_plus,ham,max_expan_order
-!       dim_rho,len_index_plus,len_un_ind,
-!       len_index_minus,nmax,nmodes,nel             
+! It is designed to be wrapped using f2py and called from Python.
 !
-!       d_ops                                       Annihilation and creation operators in an array of size [dim_rho,dim_rho,nel,2]. Unlike in nnz, these are the actual operators,
-!                                                   not their logical format
+! -----------------------------------------------------------------------------
 !
-!       ham                                         System Hamiltonian (array of size [dim_rho,dim_rho]), NOT in logical format
+! OVERVIEW
+! -----------------------------------------------------------------------------
 !
-!       rho_sparsity                                Array of size [dim_rho,dim_rho,len_un_ind] containing all ADOs after one timestep, converted to sparse representation.
-!                                                   (unfilled elements = -1 and filled elements = nnz, where nnz is their corresponding nonzero index - counting goes across
-!                                                   all columns then rows of each ADO, then across all ADOs.)
+! The routine computes spatially dependent electronic correlation functions
+! entering the construction of the electronic friction tensor.
 !
-!       nnz_elements                                Number of nonzero elements in HEOM
+! In particular, it evaluates:
 !
-! OUTPUTS:
-!       rho_nonzeros                                Array of size [nnz_elements,3] containing information about the nonzero elements in the HEOM
-!                                                   Each row corresponds to a different nonzero element and the columns contain the index of that ADO
-!                                                   to which it belongs, and its row and and column, in that order.
+!   - Markovian limit correlation contributions
+!   - Molecular contribution to the force–force correlation function
+!   - Molecule–lead coupling contribution
 !
-!       npairs                                      Number of connected pairs of elements in HEOM. Say we have an ADO of index i. If we consider the element of rho_{i} in the 
-!                                                   ath row and bth column, rho_{i}(a,b), then its time-evolution could depend on the cth row and dth column of ADO with index j: rho_{j}(c,d).
-!                                                   This connection may come from any part of the dissipative part of the HEOM. The total number of these connected pairs is npairs.
+! These quantities are computed as a function of the nuclear coordinate grid
+! x_vec, allowing reconstruction of position-dependent friction kernels.
 !
-!       nhampairs                                   The same, but just for the coherent part of the HEOM: the commutator [H,rho]
+! The implementation is based on:
+!
+!   - Sparse HEOM representation of the Liouvillian
+!   - Time propagation of auxiliary density operators (ADOs)
+!   - OpenMP-parallel evaluation over nuclear coordinate grid points
+!   - MKL-accelerated linear algebra kernels (via linked dependencies)
+!
+! -----------------------------------------------------------------------------
+!
+! MAIN SUBROUTINE
+! -----------------------------------------------------------------------------
+!
+! spatially_dependent_corrfunc(...)
+!
+! This routine evaluates correlation functions for each point on a nuclear
+! coordinate grid using a preconstructed sparse HEOM representation.
+!
+! -----------------------------------------------------------------------------
+!
+! INPUT DATA STRUCTURE
+! -----------------------------------------------------------------------------
+!
+! HEOM sparse structure:
+!
+!   pair_info_row / pair_info_col
+!       Connectivity structure of sparse HEOM Liouvillian.
+!
+!   pair_values
+!       Coupling coefficients defining transitions between HEOM elements
+!       as a function of nuclear coordinate x.
+!
+!   rho_nonzeros
+!       Index mapping of nonzero density matrix / ADO elements.
+!
+!   tier_index
+!   un_ind
+!       Hierarchy structure defining ADO organization.
+!
+! -----------------------------------------------------------------------------
+!
+! SYSTEM OPERATORS
+! -----------------------------------------------------------------------------
+!
+!   deriv_ham
+!       Derivative of system Hamiltonian with respect to nuclear coordinate.
+!
+!   deriv_v
+!       Derivative of molecule–lead coupling with respect to nuclear coordinate.
+!
+!   d_ops
+!   d_ops_log
+!       Electronic annihilation/creation operators in system Fock basis.
+!
+! -----------------------------------------------------------------------------
+!
+! NUMERICAL PARAMETERS
+! -----------------------------------------------------------------------------
+!
+!   rk_coeff, rk_coeffhat
+!       Runge–Kutta / exponential integrator coefficients.
+!
+!   dt_init, dt_min
+!       Initial and minimum timestep for adaptive propagation.
+!
+!   fac, facmin, facmax_init
+!       Adaptive timestep control parameters.
+!
+!   atol_vec, rtol_vec
+!       Absolute and relative tolerances per HEOM element.
+!
+!   max_expan_order
+!       Maximum order of exponential/Liouvillian expansion.
+!
+! -----------------------------------------------------------------------------
+!
+! GRID DEPENDENCE
+! -----------------------------------------------------------------------------
+!
+!   len_x_vec
+!       Number of nuclear coordinate grid points.
+!
+! The computation is parallelized over this grid using OpenMP.
+!
+! -----------------------------------------------------------------------------
+!
+! OUTPUTS
+! -----------------------------------------------------------------------------
+!
+!   markovian_corrfunc_coefficient_mol_vec
+!       Molecular contribution to Markovian correlation function
+!       as a function of nuclear coordinate.
+!
+!   markovian_corrfunc_coefficient_molleads_vec
+!       Molecule–lead coupling contribution.
+!
+!   prop_info_corrfunc
+!       Propagation diagnostics (timesteps, convergence, norms, etc.)
+!
+! -----------------------------------------------------------------------------
+!
+! OPTIONAL OUTPUT CONTROL
+! -----------------------------------------------------------------------------
+!
+!   print_integrand_yn
+!       If enabled, additional intermediate HEOM integrand quantities
+!       are computed for diagnostic purposes (single-point evaluation mode
+!       in nuclear coordinate space).
+!
+! -----------------------------------------------------------------------------
+!
+! IMPLEMENTATION DETAILS
+! -----------------------------------------------------------------------------
+!
+! - Sparse HEOM Liouvillian propagation
+! - Coordinate-dependent electronic structure
+! - OpenMP parallelization over nuclear grid points
+! - Mixed real/complex arithmetic depending on sparsity structure
+! - Designed for f2py Python integration
+!
+! -----------------------------------------------------------------------------
 
 subroutine sparse_matrix_elements_a(ksiglm,tier_index,index_minus,index_plus,d_ops_log,ham_log,&
                                     rho_sparsity,rho_nonzeros,npairs,nnz_elements,dim_rho,len_index_plus,&
