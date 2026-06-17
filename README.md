@@ -6,7 +6,7 @@ The nuclei are treated classically, while the electronic subsystem is treated as
 
 ---
 
-# 🧠 Physical Overview
+# Physical Overview
 
 The code computes the following quantities as functions of nuclear (vibrational) coordinates:
 
@@ -21,7 +21,7 @@ These outputs can be used as input for classical **Langevin dynamics simulations
 
 ---
 
-# ⚙️ Model flexibility
+# Model flexibility
 
 The framework supports general vibronic models with:
 
