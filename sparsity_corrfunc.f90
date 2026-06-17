@@ -1,4 +1,78 @@
+! ---------------------------------------------------------------------------
+! 
+! SERIES OF SUBROUTINES DETAILING SPARSITY OF HEOM FOR THE CORRELATION FUNCTION
+!
+! ---------------------------------------------------------------------------
+!
+! The Fortran subroutines in this program are meant to be converted to a Python wrapper using f2py, for use 
+! in the main Python code. The various subroutines detail the sparse nature of the HEOM.
+!
+! USAGE - RUN FROM TERMINAL (LINUX) TO CREATE PYTHON WRAPPER:
+!       Check fortran compilers available in your platform:  f2py -c --help-fcompiler
+!       For 'ifort': f2py -c -m sparsity sparsity.f90 --opt='-O3' --fcompiler=intelem --f90flags='-openmp -D__OPENMP' -liomp5
+!       For 'gfortran': f2py -c -m sparsity sparsity.f90 --opt='-O3' --fcompiler=gnu95 --f90flags='-fopenmp -D__OPENMP' -lgomp
+! ----------------------------------------------------------------------------
 
+! ---------------------------------------------------------------------------
+! 
+!           CALCULATE THE NUMBER OF NONZERO ELEMENTS IN THE HEOM
+!
+! ---------------------------------------------------------------------------
+!
+! This Fortran subroutine calculates the number of coupled (nonzero) ADO elements that need to be propagated
+! in time.
+!
+! USAGE - RUN FROM MAIN PYTHON CODE ONCE WRAPPED:
+!       rho_sparsity,nnz_elements,rho_out = sparsity.nnz(ksiglm=KsigLm,tier_index=tier_index,index_minus=Index_Minus,index_plus=Index_Plus,d_ops=d_ops_log,ham=Ham_log,
+!                                        rho_0=rho_0_log,max_expan_order=max_expan_order,dim_rho=dim_rho,len_index_plus=len_index_plus,len_un_ind=len_un_ind,
+!                                        len_index_minus=len_un_ind,nmax=Nmax,nmodes=Nmodes,nel=Nel) 
+!
+! INPUTS:
+!       ksiglm                                      Array of size [1,nmodes] containing all modes j = {K,sigma,l,m}
+!
+!       tier_index                                  Array of size [1,len_un_ind] containing tier of each unique ADO
+!
+!       index_minus                                 Array of size [len_un_ind,nmax,4] allowing fast indexing between tier n and n-1
+!
+!       index_plus                                  Array of size [len_index_plus,nmodes,3] allowing fast indexing between tier n and n+1
+!
+!       d_ops                                       Array of size [dim_rho,dim_rho,nel,2] containing annihilation and creation operators for each electronic
+!                                                   level in the system, converted to logical representation (filled elements = 1 and unfilled elements = 0)
+! 
+!       ham                                         Array of size [dim_rho,dim_rho] containing system Hamiltonian, converted to logical representation 
+!                                                   (filled elements = 1 and unfilled elements = 0)
+!
+!       rho_0                                       Array of size [dim_rho,dim_rho] containing initial density matrix of system, converted to logical 
+!                                                   representation (filled elements = 1 and unfilled elements = 0)
+!
+!       max_expan_order                             Scalar that determines the maximum order to go to in the aprpoximate expansion of e^{L*dt}
+!      
+!       dim_rho                                     Scalar that specifies the number of Fock states defining the system
+!
+!       len_index_plus                              Scalar giving the size of Index_plus
+!
+!       len_un_ind                                  Scalar determining the number of unique ADOs required in the HEOM
+!
+!       len_index_minus                             Scalar giving the size of Index_minus (same as len_un_ind)
+!   
+!       nmax                                        Scalar giving the maximum tier of the hierarchy
+!   
+!       nmodes                                      Scalar giving the number of modes, j = {K,sigma,l,m}, included in HEOM
+!
+!       nel                                         Scalar giving the number of electronic levels in the system
+!       
+!       wbl_yn                                      Integer with value of 0 or 1 for whether wide-band limit is applied
+!
+! OUTPUTS:
+!       rho_sparsity                                Array of size [dim_rho,dim_rho,len_un_ind] containing all ADOs after one timestep, converted to sparse representation.
+!                                                   (unfilled elements = -1 and filled elements = nnz, where nnz is their corresponding nonzero index - counting goes across
+!                                                   all columns then rows of each ADO, then across all ADOs.)
+!       
+!       nnz_elements                                Scalar giving total number of elements in ADOs that need to be propagated (i.e. that are nonzero after 1 timestep)
+!
+!       rho_out                                     An array of size [dim_rho,dim_rho,len_un_ind] containing all ADOs after one timestep, converted to logical 
+!                                                   representation (filled elements = 1 and unfilled elements = 0)
+ 
 
 subroutine sparse_matrix_elements_a(ksiglm,tier_index,index_minus,index_plus,d_ops_log,ham_log,&
                                     rho_sparsity,rho_nonzeros,npairs,nnz_elements,dim_rho,len_index_plus,&
