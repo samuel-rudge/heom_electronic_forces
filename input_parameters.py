@@ -124,7 +124,7 @@ import math
 
 # Define system constraints
 
-Nel = 1
+Nel = 1 
 N_qu_vib_modes = 0
 N_cl_vib_modes = 1
 max_occ_qu_vib_modes = [0]                                                                # Maximum number of phonons allowed in each mode

@@ -1,3 +1,53 @@
+"""
+------------------------------------------------------------------------------
+STEADY STATE SOLUTION ON X-GRID (GMRES-BASED SPARSE HEOM SOLVER)
+------------------------------------------------------------------------------
+
+This module computes the instantaneous electronic steady state of a
+position-dependent HEOM (hierarchical equations of motion) problem
+for a coupled electron-vibration system on a 1D nuclear coordinate grid.
+
+The steady state at each grid point x is obtained by solving the sparse linear
+system:
+
+    (L_HEOM(x) + Trace_Constraint) * rho_ss(x) = rhs
+
+using a preconditioned GMRES solver (scipy.sparse.linalg.gmres).
+
+Core responsibilities:
+- Construct and solve the sparse steady-state HEOM equation at each x-grid point
+- Compute observables:
+  - Reduced density matrix rho(x)
+  - Electronic forces (molecular + lead contributions)
+  - Lead currents
+  - Optional vibrational excitations (if quantum vibrational modes are enabled)
+- Use physically informed initial guesses (previous x-point, voltage continuation,
+  partition continuation when available)
+- Store full x-dependent steady-state solution and derived observables
+
+Key components:
+- gmres_counter: iteration monitor for GMRES solver
+- steady_state_x_grid:
+    - sequential or parallel evaluation over x-grid
+    - sparse GMRES solve per grid point
+    - extraction of physical observables
+    - output to .dat files
+
+Dependencies:
+- sparsity-generated HEOM Liouvillian structure
+- system operators and Hamiltonian from system.py
+- global simulation parameters from input_parameters.py
+
+Main outputs:
+- rho_ss_x_arr: sparse steady-state vector over x-grid
+- average_electronic_force_*: force contributions
+- current_vec: lead currents
+- rho_system: reconstructed density matrices
+- optional vibrational observables
+
+------------------------------------------------------------------------------
+"""
+
 import numpy as np
 import scipy
 import psutil

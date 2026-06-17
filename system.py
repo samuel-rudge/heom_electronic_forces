@@ -1,3 +1,117 @@
+"""
+HEOM-Based Electronic Friction Framework
+System Definition and Fock Space Construction Module
+
+This module defines the full quantum system used in the HEOM simulation
+framework, including the construction of:
+
+    - fermionic and bosonic Fock spaces
+    - creation and annihilation operators
+    - system Hamiltonian (electronic + vibrational contributions)
+    - electron-vibration coupling terms
+    - coordinate-dependent Hamiltonian representations
+    - Hamiltonian derivatives with respect to nuclear coordinates
+
+It acts as the central interface between abstract model parameters
+(input_parameters.py) and the operator-level representation required
+for HEOM propagation and friction/correlation calculations.
+
+-----------------------------------------------------------------------
+CORE FUNCTIONALITY
+-----------------------------------------------------------------------
+
+The main routine system_operators(...) performs the following tasks:
+
+1. Fock space construction
+   - Generates fermionic (electronic) operators
+   - Generates bosonic (vibrational) operators (if present)
+   - Builds full system Hilbert space representation
+
+2. Hamiltonian assembly
+   - Electronic Hamiltonian (site energies, hopping, interactions)
+   - Vibrational Hamiltonian (quantum modes if enabled)
+   - Electron-vibration coupling terms
+   - Optional small-polaron transformation contributions
+
+3. Operator dressing (if vibrational coupling is present)
+   - Franck-Condon transformations
+   - Dressed fermionic operators
+   - Coordinate-shifted representations of electronic operators
+
+4. Nuclear coordinate dependence
+   - Construction of x-dependent Hamiltonian H(x)
+   - Finite-difference representations for spatial derivatives
+   - Grid-based Hamiltonian evaluation for HEOM propagation
+
+5. Output operator set
+   - System Hamiltonian
+   - Coordinate-dependent Hamiltonians
+   - Hamiltonian derivatives with respect to nuclear coordinates
+   - Optional vibrational operator structures
+
+-----------------------------------------------------------------------
+MODEL FLEXIBILITY
+-----------------------------------------------------------------------
+
+The module supports:
+
+    - single or multi-site electronic systems (Nel)
+    - multiple quantum vibrational modes
+    - classical vibrational coordinates
+    - electron-electron interactions
+    - electron-vibration coupling in both diagonal and non-diagonal form
+    - optional small-polaron transformation
+
+-----------------------------------------------------------------------
+DEPENDENCIES
+
+This module depends on:
+
+    - CreAnn: construction of creation/annihilation operators and Fock space
+    - Franck_Condon: vibrational dressing and transformation matrices
+    - input_parameters.py: global system and numerical configuration
+    - numpy / scipy: linear algebra and matrix exponentials
+
+-----------------------------------------------------------------------
+COORDINATE REPRESENTATION
+
+For HEOM propagation and friction evaluation, the Hamiltonian is evaluated
+on a discrete nuclear coordinate grid x_vec, including finite-difference
+shifts used for derivative-based coupling terms.
+
+This enables direct coupling between:
+    - nuclear motion (classical coordinate x)
+    - electronic dynamics (quantum subsystem)
+    - HEOM dissipative environment
+
+-----------------------------------------------------------------------
+OUTPUT STRUCTURE
+
+The module returns:
+
+    - creation and annihilation operators
+    - Fock space basis states
+    - system Hamiltonian H
+    - coordinate-dependent Hamiltonian H(x)
+    - Hamiltonian derivatives ∂H/∂x
+    - optional vibrational operator structures and transformations
+
+These objects form the basis for all subsequent HEOM propagation,
+friction tensor evaluation, and correlation function calculations.
+
+-----------------------------------------------------------------------
+EXECUTION MODE
+
+When executed directly, this module runs a standalone test example that:
+
+    - constructs a minimal model system
+    - builds the Hamiltonian explicitly
+    - writes operator matrices to text files
+
+This mode is intended for verification and debugging of the operator
+construction pipeline.
+"""
+
 import numpy as np
 from numpy.core.numeric import ones
 from constants import *  # pylint: disable=unused-import
@@ -182,63 +296,3 @@ if __name__=='__main__': # Example parameters if code is run directly from termi
     np.savetxt(el_file,d[:,:,1],fmt='%-2.1i')
     el_file.write("-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------\n")
     el_file.close()
-
-######################################### CODE BELOW USES LANG-FIRSOV TRANSFORMATION ############################################################
-
-
-    # Ham1 = np.zeros((dim_rho,dim_rho),dtype=float) 
-    # Ham1 += Single_El_Int[0,0]*np.matmul(ddag[:,:,0],d[:,:,0]) + Vib_Freq_qu[0]*np.matmul(adag[:,:,0],a[:,:,0])
-
-    # Ham = np.zeros((dim_rho,dim_rho),dtype=float) # Initialize Hamiltonian (after small polaron transformation) to be filled
-    # Ham += Vib_Freq_qu[0]*np.matmul(adag[:,:,0],a[:,:,0]) # Fill Hamiltonian with bosonic energies (after small polaron transformation)
-    # for itrm1 in range(Nel): # Loop through fermionic levels 
-    #     Ham += Single_El_Int[0,itrm1]*np.matmul(ddag[:,:,itrm1],d[:,:,itrm1])  # Add the energy of that fermionic level to the Hamiltonian
-    #     for itrm2 in range(Nel): # Loop through all fermionic levels again to take into account double electron interactions
-    #         Ham += Double_El_Int[itrm1,itrm2]*np.matmul(np.matmul(ddag[:,:,itrm1],d[:,:,itrm1]),np.matmul(ddag[:,:,itrm2],d[:,:,itrm2]))  # Include double electron interactions in Hamiltonian
-
-    # # Generate fermionic creation and annihilation operators dressed with Franck-Condon matrix from Franck_Condon class
-
-    # FC_Operators = Franck_Condon.Franck_Condon(Constraints,El_Ph_Int,Vib_Freq_qu) # Run Franck_Condon program to generate Franck-Condon matrix and the fermionic creation and annihilation operators
-    # #                                                                           # dressed with the Franck-Condon matrix. 
-    # FC_Matrix,FC_Matrix_Fock_Space = FC_Operators.return_FC_Operators()
-
-    # d_FC = np.zeros((dim_rho,dim_rho,Nel))
-    # ddag_FC = np.zeros((dim_rho,dim_rho,Nel))
-    # d_ops_FC = np.zeros((dim_rho,dim_rho,Nel,2))
-    # for itrm in range(Nel):
-    #     d_FC[:,:,itrm] = np.matmul(d[:,:,itrm],FC_Matrix_Fock_Space[:,:,itrm])
-    #     ddag_FC[:,:,itrm] = np.matmul(ddag[:,:,itrm],np.transpose(FC_Matrix_Fock_Space[:,:,itrm]))
-    #     d_ops_FC[:,:,itrm,0] = d_FC[:,:,itrm]
-    #     d_ops_FC[:,:,itrm,1] = ddag_FC[:,:,itrm]
-    
-    # return d_ops_FC,d_FC,ddag_FC,FC_Matrix,a_ops,a,adag,Both_Fock_states,Ham 
-    # return d_ops,d,ddag,a_ops,a,adag,Both_Fock_states,Ham 
-
-
-###################### JUNK - THIS IS DONE IN THE CreAnn FUNCTION NOW ##############################
-
-# def fock_states(Single_El_Int,Vib_Freq_qu,Nel,N_qu_vib_modes,max_occ_qu_vib_modes,dim_ph,dim_el):
-
-#     # Generate associated Fock states using basis of electron and phonon occupancy
-#     """
-#     This ordering follows that of the fermionic and bosonic annihilation and creation operators
-#     """
-
-#     El_Occ = np.arange(0,2); El_Occ.astype(int); El_Occ.shape = (2,1)
-#     El_States_1 = np.tile(np.tile(El_Occ,(Nel,1)),(dim_ph,1))
-#     # El_States_2 = np.tile(np.matrix.repeat(El_Occ,Nel,axis=0),(dim_ph,1))
-#     Ph_States_1 = np.arange(0,max_occ_qu_vib_modes[0]+1); Ph_States_1.astype(int); Ph_States_1.shape = (max_occ_qu_vib_modes[0]+1,1)
-#     Ph_States_1 = np.matrix.repeat(Ph_States_1,dim_el,axis=0)
-#     # Ph_States_2 = np.arange(0,max_occ_qu_vib_modes[1]+1); Ph_States_2.astype(int); Ph_States_2.shape = (max_occ_qu_vib_modes[1]+1,1)
-#     # Ph_States_2 = np.tile(np.matrix.repeat(Ph_States_2,dim_el,axis=0),(max_occ_qu_vib_modes[0]+1,1))
-
-#     # ElPh_Fock_States = np.concatenate((El_States_1,El_States_2,Ph_States_1,Ph_States_2),axis=1) 
-#     ElPh_Fock_States = np.concatenate((El_States_1,Ph_States_1),axis=1) 
-
-#     Energy_El_1 = Single_El_Int[0,0]*El_States_1
-#     Energy_El_2 = Single_El_Int[1,1]*El_States_2
-#     Energy_Ph_1 = Vib_Freq_qu[0]*Ph_States_1
-#     Energy_Ph_2 = Vib_Freq_qu[1]*Ph_States_2
-#     diag_Energies = np.sum(np.concatenate((Energy_El_1,Energy_El_2,Energy_Ph_1,Energy_Ph_2),axis=1),axis=1)
-    
-

@@ -3,6 +3,15 @@
 *.npy
 *.p
 
+# SLURM FILES
+
+job_submission*
+
+# ARBITRARY
+
+fourier_transform_and_plot.py
+sparse_propagation.f90
+
 # Python cache / compiled files
 __pycache__/
 *.pyc

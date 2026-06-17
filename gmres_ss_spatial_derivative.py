@@ -1,3 +1,13 @@
+
+"""
+------------------------------------------------------------------------------
+STEADY STATE DERIVATIVE OF ELECTRONIC DENSITY MATRIX ON X-GRID
+------------------------------------------------------------------------------
+
+Same functionality as gmres_ss_solver.py but for the derivative of the steady-state
+electronic density matrix.
+"""
+
 import numpy as np
 import scipy
 import psutil

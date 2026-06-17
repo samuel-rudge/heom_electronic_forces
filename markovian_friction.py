@@ -1,3 +1,33 @@
+# markovian_friction.py
+#
+# This module computes the Markovian friction kernel from a HEOM-based electronic structure
+# calculation on a nuclear coordinate grid.
+#
+# The core idea is to propagate a linear-response–like auxiliary dynamics (via a sparse HEOM
+# Liouvillian constructed in Fortran through sparse_friction.f90), extract the time-dependent
+# friction integrand, and then evaluate the friction coefficient by fitting the integrand
+# to a sum of exponentials using a Prony decomposition.
+#
+# Main features:
+# - Sequential or (future) parallel evaluation over nuclear coordinates (x-grid)
+# - Adaptive time propagation of the friction integrand using sparse HEOM propagation
+# - Construction of friction contributions from molecular and lead-resolved channels
+# - On-the-fly convergence checking of the time integral
+# - Prony-based compression of the friction kernel into exponential modes
+# - Storage of friction, current, and convergence diagnostics as x-dependent arrays
+#
+# External dependencies:
+# - sparse_friction.f90 (compiled Fortran backend for HEOM propagation)
+# - numpy, scipy (sparse linear algebra, interpolation, optimization)
+# - input_parameters.py (global physical and numerical parameters)
+#
+# Output:
+# - friction_mol_vec: molecular contribution to friction
+# - friction_molleads_vec: lead-induced contribution
+# - friction_vec: total Markovian friction
+# - current_na_vec: associated non-adiabatic current
+# - prop_info_friction: propagation diagnostics (timesteps, time, convergence, etc.)
+
 import numpy as np
 import numpy.polynomial.polynomial as poly
 import matplotlib.pyplot as plt

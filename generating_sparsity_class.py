@@ -1,3 +1,131 @@
+"""
+HEOM-Based Electronic Friction Framework
+Sparse HEOM Liouvillian Construction Module
+
+This module constructs the sparse representation of the Hierarchical Equations
+of Motion (HEOM) Liouvillian used for time propagation, steady-state solving,
+and evaluation of electronic friction and correlation functions.
+
+It provides a Python-level interface that wraps optimized Fortran routines
+(via sparsity.f90) and builds a compressed sparse representation of the full
+HEOM generator.
+
+-----------------------------------------------------------------------
+CORE FUNCTIONALITY
+-----------------------------------------------------------------------
+
+The class sparsity_heom_liouvillian is responsible for:
+
+1. HEOM sparsity analysis
+   - identification of nonzero auxiliary density operator (ADO) elements
+   - construction of connectivity structure in Liouville space
+   - determination of active subspace required for propagation
+
+2. Sparse Liouvillian assembly
+   - generation of all nonzero coupling pairs between HEOM elements
+   - evaluation of Hamiltonian and dissipative contributions
+   - inclusion of molecule-lead coupling and vibrational dependence
+   - construction of x-dependent Liouvillian elements on nuclear grid
+
+3. Filtering and compression
+   - removal of dynamically disconnected Liouvillian subspaces
+   - reduction to minimal connected active space
+   - renumbering of sparse indices for efficient propagation
+
+4. Trace-preserving structure
+   - construction of sparse trace operator in HEOM space
+   - enforcement of physical consistency of reduced density matrix dynamics
+
+5. Numerical interface preparation
+   - assembly of absolute and relative tolerance vectors
+   - generation of real/complex coefficient masks for propagation
+   - preparation of RHS initial condition vector for steady-state solves
+
+-----------------------------------------------------------------------
+HEOM REPRESENTATION
+
+The HEOM Liouvillian is represented in sparse form as:
+
+    - nodes: nonzero ADO density matrix elements
+    - edges: couplings between ADO elements
+    - weights: complex-valued transition coefficients
+
+This graph structure is constructed from:
+
+    - system Hamiltonian
+    - bath decomposition parameters
+    - electronic creation/annihilation operators
+    - molecule-lead coupling terms
+    - hierarchy truncation scheme
+
+-----------------------------------------------------------------------
+GRID DEPENDENCE
+
+For position-dependent simulations, the Liouvillian is evaluated on a
+nuclear coordinate grid x_vec. This enables:
+
+    - friction tensor evaluation
+    - spatially resolved correlation functions
+    - coordinate-dependent steady-state solutions
+
+-----------------------------------------------------------------------
+FORTRAN INTERFACE
+
+All low-level sparsity detection and Liouvillian construction is performed
+by the Fortran backend (sparsity.f90), which is called through:
+
+    - sparsity.nnz
+    - sparsity.sparse_matrix_elements_a
+    - sparsity.sparse_matrix_elements_b
+    - wide-band-limit variants (when enabled)
+
+This module acts as a Python orchestrator and post-processor.
+
+-----------------------------------------------------------------------
+MAIN CLASS
+
+sparsity_heom_liouvillian(...)
+
+On initialization, the class automatically executes the full pipeline:
+
+    - detection of nonzero ADO structure
+    - construction of raw sparse Liouvillian
+    - generation of filtered active subspace
+    - construction of trace-preserving sparse operator
+    - preparation of propagation-ready data structures
+
+-----------------------------------------------------------------------
+OUTPUT STRUCTURE
+
+The class provides:
+
+    - sparse Liouvillian connectivity (row/col/value format)
+    - filtered active subspace representation
+    - index mappings between full and reduced HEOM spaces
+    - trace operator in sparse form
+    - tolerances and propagation control vectors
+    - initial RHS vector for steady-state / propagation solvers
+
+-----------------------------------------------------------------------
+DEPENDENCIES
+
+- numpy: array construction and numerical handling
+- scipy.sparse: graph connectivity filtering and projection
+- gc: memory management for large sparse structures
+- sparsity (Fortran-f2py module): core HEOM sparsity engine
+
+-----------------------------------------------------------------------
+EXECUTION MODEL
+
+This module is instantiated inside the main driver:
+
+    friction_heom_main.py
+
+It is executed once during setup to construct the full HEOM Liouvillian
+before any time propagation, steady-state solving, or response function
+evaluation is performed.
+"""
+
 import sparsity
 import gc
 import scipy.sparse as sparse

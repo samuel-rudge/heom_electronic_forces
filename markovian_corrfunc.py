@@ -1,3 +1,33 @@
+# markovian_corrfunc.py
+#
+# This module computes the Markovian corrfunc kernel from a HEOM-based electronic structure
+# calculation on a nuclear coordinate grid.
+#
+# The core idea is to propagate a linear-response–like auxiliary dynamics (via a sparse HEOM
+# Liouvillian constructed in Fortran through sparse_corrfunc.f90), extract the time-dependent
+# corrfunc integrand, and then evaluate the corrfunc coefficient by fitting the integrand
+# to a sum of exponentials using a Prony decomposition.
+#
+# Main features:
+# - Sequential or (future) parallel evaluation over nuclear coordinates (x-grid)
+# - Adaptive time propagation of the corrfunc integrand using sparse HEOM propagation
+# - Construction of corrfunc contributions from molecular and lead-resolved channels
+# - On-the-fly convergence checking of the time integral
+# - Prony-based compression of the corrfunc kernel into exponential modes
+# - Storage of corrfunc, current, and convergence diagnostics as x-dependent arrays
+#
+# External dependencies:
+# - sparse_corrfunc.f90 (compiled Fortran backend for HEOM propagation)
+# - numpy, scipy (sparse linear algebra, interpolation, optimization)
+# - input_parameters.py (global physical and numerical parameters)
+#
+# Output:
+# - corrfunc_mol_vec: molecular contribution to corrfunc
+# - corrfunc_molleads_vec: lead-induced contribution
+# - corrfunc_vec: total Markovian corrfunc
+# - current_na_vec: associated non-adiabatic current
+# - prop_info_corrfunc: propagation diagnostics (timesteps, time, convergence, etc.)
+
 import numpy as np
 import numpy.polynomial.polynomial as poly
 import matplotlib.pyplot as plt
