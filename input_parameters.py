@@ -7,7 +7,7 @@ import math
 
 # Define system constraints
 
-Nel = 2
+Nel = 1
 N_qu_vib_modes = 0
 N_cl_vib_modes = 1
 max_occ_qu_vib_modes = [0]                                                                # Maximum number of phonons allowed in each mode
@@ -87,7 +87,7 @@ checking_partitions_and_voltages = False
 parallelize_x_grid = False
 checking_timesteps_yn = False
 redo_everything = False
-print_integrand_yn = False
+print_integrand_yn = True
 checking_time_interval = 300
 tol_checking_time = 1e-6
 n_prony_terms = 500
@@ -96,7 +96,7 @@ max_time = 1500
 min_time = 500
 # Define bath parameters
 
-voltage = 0.4
+voltage = 0.1
 dv = 0.05
 if Nleads == 2:
     muvec = np.array([voltage/2,-voltage/2],dtype=float)                      # Chemical potentials of left (first) and right (second) electrodes
@@ -132,8 +132,7 @@ for itr_qu_vib_modes in range(N_qu_vib_modes):
 
 # Define system electronic parameters
 
-delta_parameter = 0.2
-energies_vector = [delta_parameter/2,-delta_parameter/2]
+energies_vector = [0.05]
 hopping_vector = [0.0,0.0]
 elel_interaction_vector = [0.0]
 degenerate_levels = True
@@ -156,7 +155,7 @@ elif Nel > 1:
 # Define vibrational vector 
 
 max_energy_diff = 0.45
-dx_grid = 1
+dx_grid = 0.1
 x_min_total = 0.001
 x_max_total = x_min_total+dx_grid*1.001
 len_x_vec_total = int((x_max_total - x_min_total)/dx_grid)
@@ -185,16 +184,14 @@ dx_vec = np.array([0,2*dx_sssd,dx_sssd,-dx_sssd,-2*dx_sssd],dtype=float)
 
 # DEFINE GAMMA PARAMETERS ###
 
-Gamma_choice = 25/1000
+Gamma_choice = 50/1000
 V_Km = np.sqrt(Gamma_choice/(2*np.pi))
 # el_lead_couplings = np.full((Nleads,Nel,len_x_vec,5),V_Km,dtype=float)
 el_lead_couplings = np.zeros((Nleads,Nel,len_x_vec,5),dtype=float)
 dV_dx = np.zeros((Nleads,Nel,len_x_vec),dtype=float)
 
-for itrleads in range(Nleads):
-    for itrel in range(Nel):
-        for itrx in range(len_x_vec):
-            for itrdx in range(5):
-                el_lead_couplings[0,0,itrx,itrdx] = V_Km
-                el_lead_couplings[1,1,itrx,itrdx] = V_Km
+for itrx in range(len_x_vec):
+    for itrdx in range(5):
+        el_lead_couplings[0,0,itrx,itrdx] = V_Km # left lead
+        el_lead_couplings[1,0,itrx,itrdx] = V_Km # right lead
 
