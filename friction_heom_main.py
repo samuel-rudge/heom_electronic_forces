@@ -27,7 +27,7 @@ Two main simulation modes are available:
 
    Outputs are written as .dat files in the working directory.
 
-2. Markovian friction and correlation functions:
+2. Markovian friction and correlation functions (Can only be run after ss):
    python3 friction_heom_main.py markovian
 
    Computes:
@@ -71,13 +71,23 @@ DEPENDENCIES
 - Precompiled Fortran extensions (see compile_f2py.sh)
 
 -----------------------------------------------------------------------
+BUILD STEP (REQUIRED BEFORE RUNNING)
+
+Before executing this script, compile all Fortran extensions by running:
+compile_f2py.sh in the main directory using a bash shell (e.g. bash compile_f2py.sh).
+
+The build links against Intel MKL and uses f2py to generate Python interfaces
+to the Fortran modules.
+
+-----------------------------------------------------------------------
 IMPORTANT
 
-All Fortran extensions must be compiled before running this script by executing:
-compile_f2py.sh in the main directory.
-
-The code has been primarily tested with Anaconda 2022 environments.
-Compatibility with newer distributions is not guaranteed.
+- All output files are written to the working directory and may be overwritten.
+- The Markovian mode requires a predefined nuclear coordinate grid.
+- For non-Markovian single-point evaluation, the grid must be reduced to one
+  point by setting x_max_total = x_min_total + dx_grid in input_parameters.py.
+- The code has been primarily tested with Anaconda 2022 environments.
+  Compatibility with newer distributions is not guaranteed.
 """
 
 #### IMPORT PYTHON MODULES ####
