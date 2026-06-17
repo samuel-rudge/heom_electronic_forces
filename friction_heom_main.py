@@ -1,21 +1,84 @@
-# ---------------------------------------------------------------------
-#
-#                            HEOM IMPLEMENTATION - MAIN CODE
-#
-# ---------------------------------------------------------------------
-#
-# This Python file contains the main code used to perform HEOM time-propagation. Because implementing
-# HEOM is a complex task, various parts of the implementation are split into Python modules and Fortran
-# subroutines. This code imports all modules and runs them in the correct order. It also contains the code 
-# that determines what we do with the end result; in this case we plot the current and elements of the 
-# density matrix.
-#
-# USAGE - RUN FROM COMMAND LINE (TERMINAL) WITH ANACONDA:
-#       python Holstein_Propagation_Main.py
-#
-#       Note that one must create the Python wrappers from the Fortran subroutines first (eta_gamma,sparsity,sparse_propagation)
-#       Alternatively, one could go into a python environment (type Python into command line) and run each line manually.
-#
+"""
+HEOM-Based Electronic Friction Framework
+Main driver: friction_heom_main.py
+
+This script is the primary entry point for all simulations in this repository.
+
+It implements a Hierarchical Equations of Motion (HEOM) based framework for
+computing electronic forces, currents, and friction kernels in vibronic
+quantum transport systems with classical nuclear degrees of freedom and
+quantum electronic open-system dynamics.
+
+-----------------------------------------------------------------------
+USAGE MODES
+-----------------------------------------------------------------------
+
+The script is executed from the terminal in the main directory.
+
+Two main simulation modes are available:
+
+1. Steady-state electronic observables:
+   python3 friction_heom_main.py ss
+
+   Computes steady-state quantities on a predefined nuclear coordinate grid,
+   including:
+   - adiabatic mean forces
+   - electronic currents (adiabatic and non-adiabatic contributions)
+
+   Outputs are written as .dat files in the working directory.
+
+2. Markovian friction and correlation functions:
+   python3 friction_heom_main.py markovian
+
+   Computes:
+   - Markovian electronic friction tensor
+   - force–force correlation functions
+
+   Optional non-Markovian integrand evaluation is enabled via the flag
+   print_integrand_yn in input_parameters.py.
+
+-----------------------------------------------------------------------
+OUTPUT
+-----------------------------------------------------------------------
+
+All results are written directly to the working directory. This includes:
+
+- steady-state observables (forces, currents)
+- friction tensors and correlation functions
+- optional intermediate and diagnostic files
+- simulation metadata (simulation_info.dat)
+
+Existing output files may be overwritten upon execution.
+
+-----------------------------------------------------------------------
+IMPLEMENTATION DETAILS
+-----------------------------------------------------------------------
+
+- Electronic dynamics is treated using HEOM with user-defined hierarchy depth.
+- Nuclear degrees of freedom are treated classically on a coordinate grid.
+- Heavy numerical routines are implemented in Fortran and interfaced via f2py.
+- Sparse linear algebra and HEOM propagation use MKL-accelerated routines.
+- OpenMP parallelization is used over nuclear coordinate evaluations in
+  Markovian mode.
+
+-----------------------------------------------------------------------
+DEPENDENCIES
+
+- Python (Anaconda 2022 recommended)
+- NumPy / SciPy
+- Fortran compiler (gfortran or Intel)
+- Intel MKL (required for optimized sparse routines)
+- Precompiled Fortran extensions (see compile_f2py.sh)
+
+-----------------------------------------------------------------------
+IMPORTANT
+
+All Fortran extensions must be compiled before running this script by executing:
+compile_f2py.sh in the main directory.
+
+The code has been primarily tested with Anaconda 2022 environments.
+Compatibility with newer distributions is not guaranteed.
+"""
 
 #### IMPORT PYTHON MODULES ####
 
