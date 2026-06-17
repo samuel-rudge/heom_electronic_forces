@@ -1,86 +1,170 @@
-! ---------------------------------------------------------------------------
-! 
-!                     PERFORM TIME-PROPAGATION OF ADOs
+! -----------------------------------------------------------------------------
 !
-! ---------------------------------------------------------------------------
+!        SPATIALLY-RESOLVED HEOM ELECTRONIC FRICTION TENSOR
 !
-! This Fortran subroutine is meant to be converted to a Python wrapper using f2py, for use 
-! in the main Python code. The various subroutines detail the sparse nature of the HQME.
+! -----------------------------------------------------------------------------
 !
-! USAGE - RUN FROM TERMINAL (LINUX) TO CREATE PYTHON WRAPPER:
-!       Check fortran compilers available in your platform:  f2py -c --help-fcompiler
-!       For 'ifort': f2py -c -m sparse_propagation sparse_propagation.f90 --opt='-O3' --fcompiler=intelem --f90flags='-openmp -D__OPENMP' -liomp5
-!       For 'gfortran': f2py -c -m sparse_propagation sparse_propagation.f90 --opt='-O3' --fcompiler=gnu95 --f90flags='-fopenmp -D__OPENMP' -lgomp
+! This module provides the Fortran backend for the computation of
+! electronic friction coefficients within the HEOM framework.
 !
-! It uses parallel programming and the previously generated sparse representation of the HQME to 
-! propagate an initial density matrix in time, keeping track of both the time-dependent current
-! and the density matrix itself.
+! It evaluates the friction kernel as a function of nuclear coordinate
+! x_vec by combining:
 !
-! USAGE - RUN FROM MAIN PYTHON CODE ONCE WRAPPED:
-!       rho_system,current = sparse_propagation.sparse_propagation(pair_info=pair_info,pair_values=pair_values,ham_pair_info=ham_pair_info,
-!                               rho_nonzeros=rho_nonzeros,gamma_values=gamma_values,ham=Ham,tier_index=tier_index,un_ind=Un_Ind,d_ops=d_ops,
-!                               ksiglm=KsigLm,rho_0=rho_0,dt=dt,nsteps=nsteps,dim_rho=dim_rho,max_expan_order=max_expan_order,nnz_elements=nnz_elements,
-!                               npairs=npairs,nhampairs=nhampairs,len_un_ind=len_un_ind,nmax=Nmax,nmodes=Nmodes,nel=Nel,nleads=Nleads)
+!   - HEOM-based linear response propagation
+!   - spatial derivatives of the steady-state density matrix
+!   - electronic force operators and molecule–lead coupling structure
 !
-! INPUTS:
-!       pair_info                                   Array of size [npairs,4] containing information about the pairs of coupled nonzero elements in the HQME.
-!                                                   Each row corresponds to a different coupled pair;
-!                                                   Column 1 contains the nonzero index of the LHS ADO element, 
-!                                                   Column 2 contains the nonzero index of the RHS ADO element,
-!                                                   Column 3 contains 1 if the connection between these two ADOs requires a hermiticity relation, and 0 if not
-!                                                   Column 4 contains ??? FINISH
-!       pair_values                                 Array of size [1,npairs] containing the value of this connection (i.e. the corresponding element of e^{L*dt} in Liouville space)            
+! The routine is designed to be wrapped using f2py and called from Python.
 !
-!       ham_pair_info                               The same as pair_info, but just for the coherent part containing the commutator with the Hamiltonian
+! -----------------------------------------------------------------------------
 !
-!       rho_nonzeros                                Array of size [nnz_elements,3] containing information about the nonzero elements in the HQME
-!                                                   Each row corresponds to a different nonzero element and the columns contain the index of that ADO
-!                                                   to which it belongs, and its row and and column, in that order.
+! OVERVIEW
+! -----------------------------------------------------------------------------
 !
-!       gamma_values                                Array of size [1,nnz_elements] containing the sum over gamma values for each ADO in the HQME                                
-! 
-!       ham                                         Array of size [dim_rho,dim_rho] containing system Hamiltonian
+! The subroutine computes position-dependent electronic friction coefficients
+! entering generalized Langevin descriptions of nuclear motion.
 !
-!       tier_index                                  Array of size [1,len_un_ind] containing tier of each unique ADO
+! In particular, it evaluates:
 !
-!       un_ind                                      Array of size [len_un_ind,nmax] containing the modes of each unique ADO    
-!      
-!       d_ops                                       Array of size [dim_rho,dim_rho,nel,2] containing annihilation and creation operators for each electronic
-!                                                   level in the system
+!   - Markovian electronic friction tensor
+!   - Molecular contribution to friction
+!   - Molecule–lead coupling contribution
+!   - Non-adiabatic current response (optional diagnostic output)
 !
-!       ksiglm                                      Array of size [1,nmodes] containing all modes j = {K,sigma,l,m}
+! All quantities are evaluated on a nuclear coordinate grid x_vec.
 !
-!       rho_0                                       Array of size [dim_rho,dim_rho] containing initial density matrix of system
+! -----------------------------------------------------------------------------
 !
-!       dt                                          Scalar that specifies size of each timestep
-!       
-!       nsteps                                      Scalar that specifies the number of timesteps to propagate
-!   
-!       dim_rho                                     Scalar that specifies the number of Fock states defining the system
+! MAIN SUBROUTINE
+! -----------------------------------------------------------------------------
 !
-!       max_expan_order                             Scalar that determines the maximum order to go to in the aprpoximate expansion of e^{L*dt}
+! spatially_dependent_friction(...)
 !
-!       nnz_elements                                Number of ADO elements that are required to be propagated
-!       
-!       npairs                                      Number of connected pairs of elements in HQME. Say we have an ADO of index i. If we consider the element of rho_{i} in the 
-!                                                   ath row and bth column, rho_{i}(a,b), then its time-evolution could depend on the cth row and dth column of ADO with index j: rho_{j}(c,d).
-!                                                   This connection may come from any part of the dissipative part of the HQME. The total number of these connected pairs is npairs.
+! Computes friction and current response functions by combining:
 !
-!       nhampairs                                   The same, but just for the coherent part of the HQME: the commutator [H,rho]
+!   - HEOM sparse Liouvillian structure
+!   - derivative coupling operators
+!   - spatial derivatives of steady-state density matrices
 !
-!       len_un_ind                                  Scalar determining the number of unique ADOs required in the HQME
+! -----------------------------------------------------------------------------
 !
-!       nmax                                        Scalar giving the maximum tier of the hierarchy
+! INPUT DATA STRUCTURE
+! -----------------------------------------------------------------------------
 !
-!       nmodes                                      Scalar giving the number of modes, j = {K,sigma,l,m}, included in HQME
+! HEOM sparse structure:
 !
-!       nel                                         Scalar giving the number of electronic levels in the system
+!   pair_info_row / pair_info_col
+!       Sparse connectivity structure of HEOM Liouvillian elements.
 !
-!       nleads                                      calar giving the number of electrodes
+!   pair_values
+!       Coordinate-dependent transition amplitudes in Liouville space.
 !
-! OUTPUTS:
-!       rho_all_ADOs_1_nuc_frame
+!   rho_nonzeros
+!       Mapping of nonzero density matrix / ADO elements.
 !
+!   tier_index / un_ind
+!       Hierarchical organization of ADO space.
+!
+! -----------------------------------------------------------------------------
+!
+! SYSTEM DEPENDENCE
+! -----------------------------------------------------------------------------
+!
+!   deriv_ham
+!       Derivative of Hamiltonian with respect to nuclear coordinate x.
+!
+!   deriv_v
+!       Derivative of molecule–lead coupling with respect to x.
+!
+!   el_lead_couplings
+!       Explicit lead–molecule coupling amplitudes as a function of x.
+!
+!   d_ops / d_ops_log
+!       Electronic creation/annihilation operators in Fock basis.
+!
+! -----------------------------------------------------------------------------
+!
+! LINEAR RESPONSE INPUT
+! -----------------------------------------------------------------------------
+!
+!   rho_ss_spatial_derivative
+!       Spatial derivative of the steady-state density matrix obtained
+!       from the HEOM solver. This quantity is used to construct the
+!       friction kernel via linear response theory.
+!
+! -----------------------------------------------------------------------------
+!
+! NUMERICAL PARAMETERS
+! -----------------------------------------------------------------------------
+!
+!   rk_coeff, rk_coeffhat
+!       Runge–Kutta / exponential integrator coefficients.
+!
+!   dt_init, dt_min
+!       Initial and minimum timestep for adaptive propagation.
+!
+!   fac, facmin, facmax_init
+!       Adaptive timestep control parameters.
+!
+!   atol_vec, rtol_vec
+!       Absolute and relative tolerances per HEOM element.
+!
+!   max_expan_order
+!       Maximum order of Liouvillian exponential expansion.
+!
+! -----------------------------------------------------------------------------
+!
+! GRID DEPENDENCE
+! -----------------------------------------------------------------------------
+!
+!   len_x_vec
+!       Number of nuclear coordinate grid points.
+!
+! The computation is parallelized over x_vec using OpenMP.
+!
+! -----------------------------------------------------------------------------
+!
+! OUTPUTS
+! -----------------------------------------------------------------------------
+!
+!   markovian_friction_coefficient_mol_vec
+!       Molecular contribution to Markovian friction coefficient.
+!
+!   markovian_friction_coefficient_molleads_vec
+!       Molecule–lead coupling contribution to friction.
+!
+!   current_na_vec
+!       Non-adiabatic current response as a function of x and lead index.
+!
+!   prop_info_friction
+!       Propagation diagnostics (timesteps, convergence, norms, etc.)
+!
+! -----------------------------------------------------------------------------
+!
+! OPTIONAL OUTPUT CONTROL
+! -----------------------------------------------------------------------------
+!
+!   print_integrand_yn
+!       If enabled, additional intermediate quantities associated with the
+!       friction kernel integrand are computed for diagnostic purposes.
+!
+!   degenerate_levels
+!       Flag indicating whether electronic levels are treated as degenerate
+!       in the friction evaluation.
+!
+! -----------------------------------------------------------------------------
+!
+! IMPLEMENTATION DETAILS
+! -----------------------------------------------------------------------------
+!
+! - Sparse HEOM Liouvillian evaluation
+! - Linear-response reconstruction of friction kernel
+! - Spatial differentiation of steady-state density matrix
+! - OpenMP parallelization over nuclear grid points
+! - Mixed real/complex arithmetic depending on operator structure
+! - Designed for f2py Python integration
+!
+! -----------------------------------------------------------------------------
 
 include 'mkl_spblas.f90'
 
