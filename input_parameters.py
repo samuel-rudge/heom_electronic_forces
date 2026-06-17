@@ -1,3 +1,120 @@
+"""
+HEOM-Based Electronic Friction Framework
+Input Parameter Specification Module
+
+This file defines all physical, numerical, and computational parameters
+used throughout the HEOM simulation framework.
+
+It acts as the central configuration layer controlling:
+
+    - electronic structure of the system
+    - vibrational (classical and quantum) degrees of freedom
+    - molecule–lead coupling
+    - bath spectral properties
+    - HEOM hierarchy truncation and convergence settings
+    - time propagation and numerical tolerances
+    - spatial nuclear coordinate grid definition
+    - output and diagnostic options
+
+-----------------------------------------------------------------------
+GENERAL STRUCTURE
+-----------------------------------------------------------------------
+
+The parameters are organized into the following sections:
+
+1. System size and basis definition
+2. HEOM hierarchy and bath decomposition settings
+3. Numerical propagation and solver controls
+4. Bath (lead) physical parameters
+5. Vibrational mode definitions (classical and quantum)
+6. Electronic Hamiltonian specification
+7. Nuclear coordinate grid definition
+8. Molecule–lead coupling model
+9. Output and runtime control flags
+
+-----------------------------------------------------------------------
+UNITS
+-----------------------------------------------------------------------
+
+Unless otherwise stated, all quantities are expressed in:
+
+    - electron volts (eV) for energies
+    - dimensionless coordinates for vibrational modes
+    - atomic units implied where appropriate for dynamical quantities
+
+-----------------------------------------------------------------------
+EXECUTION MODEL
+-----------------------------------------------------------------------
+
+This file is NOT executed directly.
+
+It is imported by the main driver:
+
+    friction_heom_main.py
+
+All parameters defined here are read at import time and remain fixed
+throughout a simulation run.
+
+-----------------------------------------------------------------------
+SPATIAL GRID COUPLING
+
+Many observables (forces, friction, correlation functions) are evaluated
+on a discrete nuclear coordinate grid x_vec defined in this file.
+
+The grid resolution and range determine:
+
+    - resolution of friction tensor
+    - spatial dependence of electronic observables
+    - computational cost and parallelization structure
+
+-----------------------------------------------------------------------
+MODEL FLEXIBILITY
+-----------------------------------------------------------------------
+
+The framework supports:
+
+    - single or multi-level electronic systems
+    - multiple vibrational modes (classical and quantum)
+    - arbitrary lead configurations (number of electrodes = Nleads)
+    - tunable molecule–lead coupling matrices
+    - flexible spectral decomposition schemes (Pade / barycentric)
+    - optional wide-band limit approximation
+
+-----------------------------------------------------------------------
+OUTPUT CONTROL
+
+Several flags in this file control simulation behavior:
+
+    print_integrand_yn
+        Enables evaluation of intermediate HEOM integrand quantities
+        for diagnostic or single-point friction/correlation analysis.
+
+    parallelize_x_grid
+        Controls whether spatial grid evaluation is parallelized.
+
+    redo_everything
+        Forces recomputation of all intermediate cached data.
+
+-----------------------------------------------------------------------
+COMPUTATIONAL NOTES
+
+- This file strongly influences memory scaling through:
+    dim_rho, Nmax, Nmodes, and x_grid resolution.
+
+- HEOM hierarchy size and bath decomposition parameters directly
+  determine computational complexity.
+
+- The Fortran backend depends on several parameters defined here
+  (e.g. Nleads, Nel, Nmodes, coupling strengths).
+
+-----------------------------------------------------------------------
+IMPORTANT
+
+Changing parameters in this file will change all simulation results.
+Consistency between physical parameters and numerical convergence
+settings is required for reliable results.
+"""
+
 import numpy as np
 from constants import * # pylint disable=unused-wildcard-import
 import const_ARK
