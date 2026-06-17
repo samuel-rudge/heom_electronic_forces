@@ -1,0 +1,10 @@
+# Data files
+*.dat
+*.npy
+*.p
+
+# Python cache / compiled files
+__pycache__/
+*.pyc
+*.pyo
+*.cpython-*

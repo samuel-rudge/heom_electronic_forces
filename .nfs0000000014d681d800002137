@@ -1,0 +1,8 @@
+The simulation starts at Wed Dec 20 09:33:58 2023
+Elapsed time of indices generation: 0.005193892167881131
+Elapsed time to transform to sparse representation: 0.0674770469777286
+Elapsed time after calculating adiabatic quantities via GMRES: 0.008452419890090823
+Elapsed time after generating spatial derivative of steady state: 0.049622684018686414
+Elapsed time after calculating Markovian friction coefficient: 0.0005132509395480156
+Elapsed time after calculating Markovian correlation function: 0.00033884099684655666
+The simulation ends at Wed Dec 20 09:33:58 2023

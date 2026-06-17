@@ -1,0 +1,161 @@
+import numpy as np
+from matplotlib import pyplot as plt
+
+# ---------------------------------------------------------------------
+#
+#              PADE DECOMPOSITION OF FERMI-DIRAC FUNCTION
+#
+# ---------------------------------------------------------------------
+#
+# This class contains a series of functions that generate the parameters required for a Pade
+# decomposition of a Fermi-Dirac function (Gen_Fermi_Pade_Parameters) as well as an 
+# approximation of the function itself (fermi_app) and the exact function (fermi_act). 
+# The approximation is based on the [N-1,N] approach outlined in
+#  https://aip.scitation.org/doi/10.1063/1.3602466 .
+#
+# Samuel Rudge
+# 
+# USAGE: Pade = Pade_poles.Pade_spec_dec(N)
+#
+# INPUT: 
+#       N                       Maximum number of Pade poles to include in approximation
+#
+# OUTPUT: 
+#       Pade                    Object containing functions to return Pade parameters or 
+#                               make approximations of the Fermi-Dirac function using these parameters.
+# ---------------------------------------------------------------------
+
+class Pade_spec_dec():
+
+    def __init__(self,Nmax):                                                                        # Run this when creating Pade object
+        self.Nmax = Nmax                                                                            # Define Nmax as the maximum number of Pade poles to include
+        self.Gen_Fermi_Pade_Parameters()                                                            # Run the function to generate the Pade parameters
+
+    def Gen_Fermi_Pade_Parameters(self):
+
+        def KronDelta(m,n):                                                                         # Define a Kronecker delta function for inputs m and n
+            if m==n:
+                return 1
+            else:
+                return 0
+
+        def Bfun(n):                                                                                # Define a function to create vector of b_n coefficients
+            return 2*n - 1
+ 
+        M = 2*self.Nmax                                                                             # Calculate size of real symmetric matrix
+        ReSym = np.empty((M,M),float)                                                               # Initialize real symmetric matrix used to generate roots and frequencies
+
+        for itrm in range(M):
+            for itrn in range(M):
+                ReSym[itrm,itrn] = KronDelta(itrm+1,itrn+1+1)/np.sqrt(Bfun(itrm+1)*Bfun(itrn+1))    # Construct real matrix to relate frequencies to eigenvalues
+
+        ReSym = ReSym + np.matrix.transpose(ReSym)                                                  # Turn real matrix into real symmetric matrix
+        Eigs_freq = np.linalg.eigvalsh(ReSym)                                                       # Calculate eigenvalues of frequency matrix
+        Eigs_root = np.linalg.eigvalsh(ReSym[1:,1:])                                                # Calculate eigenvalues of root matrix
+
+        Freqsq = np.square((2/Eigs_freq[Eigs_freq > 0]))                                            # Relate eigenvalues to frequencies (xi tilde in Pade paper) 
+        self.Zeta = -np.sort(Freqsq)
+        Rootsq = -np.sort(np.square((2/Eigs_root[Eigs_root > 1.e-13])))                             # Relate eigenvalues to roots
+        
+        self.Kappa = np.empty(self.Nmax,dtype=float)                                                # Initialize coefficient vector (called eta tilde in Pade paper)
+        for itrj in range(self.Nmax):
+            Quotient = 1.
+            for itrk in range(self.Nmax):
+                if itrk != (self.Nmax-1) and itrk != itrj:
+                    Quotient *= (self.Zeta[itrj] - Rootsq[itrk])/(self.Zeta[itrj] - self.Zeta[itrk])
+                if itrk == (self.Nmax-1) and itrk != itrj:
+                    Quotient *= 1/(self.Zeta[itrj] - self.Zeta[itrk])
+                if itrk != (self.Nmax-1) and itrk == itrj:
+                    Quotient *= (self.Zeta[itrj] - Rootsq[itrk])
+            self.Kappa[itrj] = Quotient
+
+        self.Kappa = (0.5*self.Nmax*(2*(self.Nmax+1)-1))*self.Kappa                                 # Multiply by required coefficient
+        
+# ---------------------------------------------------------------------
+#
+#              RETURN PARAMETERS OF PADE APPROXIMATION
+#
+# ---------------------------------------------------------------------
+
+    def get_Pade_parameters(self):                                                                  # Define function to return Pade parameters (necessary for HQME coefficients and exponents)
+        return self.Kappa,self.Zeta
+        
+# ---------------------------------------------------------------------
+#
+#              PADE APPROXIMATION OF FERMI-DIRAC FUNCTION
+#
+# ---------------------------------------------------------------------
+#
+# This function takes the parameters generated by Gen_Fermi_Pade_Parameters and returns the 
+# approximated Fermi-Dirac function for a given temperature and energy input.
+#
+# 
+# USAGE: FD_app = Pade.fermi_app(w,T) 
+# 
+# INPUT:
+#       w                       Free energy level to be evaluated: w = eps - mu. 
+#                               Must be a numpy array with dimensions [1,length(w)].        
+#
+#       T                       T = k_BT is the temperature already expressed in 
+#                               the same units as the energy, w. 
+#
+#
+# OUTPUT:
+#       FD_app                  Approximate Fermi-Dirac function evaluated for 
+#                               inputted energy or energies. Returns a numpy array 
+#                               with the same dimensions as w. 
+# ---------------------------------------------------------------------
+
+    def fermi_app(self,w,T):
+        x = w/T                                                                                # Define scaled energy and temperature
+        KappaT = np.transpose(np.array([self.Kappa]))
+        ZetaT = np.transpose(np.array([self.Zeta]))
+        self.FD_approx = np.array([0.5 - 2*np.sum(np.divide(KappaT*x,(-ZetaT + x**2)),axis=0)])
+        return self.FD_approx
+
+# ---------------------------------------------------------------------
+#
+#                      EXACT FERMI-DIRAC FUNCTION
+#
+# ---------------------------------------------------------------------
+#
+# USAGE: FD_act = Pade.fermi_act(w,T) 
+# 
+# INPUT:
+#       w                       Free energy level to be evaluated: w = eps - mu. 
+#                               Must be a numpy array.        
+#
+#       T                       T = k_BT is the temperature already expressed in 
+#                               the same units as the energy, w. 
+#
+#
+# OUTPUT:
+#       FD_act                  Exact Fermi-Dirac function evaluated for 
+#                               inputted energy or energies. Returns a scalar if 
+#                               w is a scalar, and a vector if w is a vector. 
+# ---------------------------------------------------------------------
+
+    def fermi_act(self,w,T):
+        self.FD_exact = 1/(1 + np.exp(w/T)) 
+        return self.FD_exact
+
+if __name__=='__main__':                                                                        # Show demonstration if run directly from terminal
+    import Pade_poles
+    N = 10
+    w = np.array([np.linspace(-0.007,0.007,num=100)])
+    T = 0.001
+
+    Pade = Pade_poles.Pade_spec_dec(N)
+    FD_approx = Pade.fermi_app(w,T)
+    FD_exact = Pade.fermi_act(w,T)
+
+    fig = plt.figure()
+    ax = plt.axes()
+    plot1=ax.plot(w[0,:],FD_exact[0,:],'k',linewidth=2,label='Exact')
+    plot2=ax.plot(w[0,:],FD_approx[0,:],'r',linewidth=2,label='Pade')
+    handles, labels = ax.get_legend_handles_labels()
+    ax.legend(handles, labels,loc='upper right'
+    ,bbox_to_anchor=(1,0.5))
+    ax.axis([np.amin(w),np.amax(w),-0.005,1.005])
+    ax.tick_params(axis='y', labelcolor='black',length=6, width=2)
+    plt.show()
